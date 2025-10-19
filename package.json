@@ -12,7 +12,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.67.0",
     "@auth/mongodb-adapter": "^3.11.0",
-    "@google/generative-ai": "^0.24.1",
+    "@google/genai": "^1.25.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.24",

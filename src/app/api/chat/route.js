@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
+const ai = new GoogleGenAI({
+  apiKey: process.env.GOOGLE_AI_API_KEY
+});
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -41,15 +44,15 @@ async function handleGeminiRequest(message, history) {
       return getDummyResponse('gemini', message);
     }
 
-    console.log('Attempting to use Gemini API with key:', process.env.GOOGLE_AI_API_KEY.substring(0, 10) + '...');
+    console.log('Attempting to use Gemini API with new SDK...');
     
-    // Try the most basic model name first
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-    
-    const result = await model.generateContent([message]);
-    const response = await result.response;
-    const text = response.text();
+    // Use the new API syntax from documentation
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash-exp",
+      contents: message,
+    });
 
+    const text = response.text;
     console.log('Gemini API success, response length:', text.length);
 
     return NextResponse.json({
@@ -111,12 +114,48 @@ async function handleGrokRequest(message, history) {
       return getDummyResponse('grok', message);
     }
 
-    // Grok API implementation would go here
-    // For now, return dummy response
-    return getDummyResponse('grok', message);
+    console.log('Attempting Groq API call...');
+    
+    // Convert history to Groq format
+    const messages = [
+      ...(history?.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      })) || []),
+      { role: 'user', content: message }
+    ];
+
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.GROK_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-70b-versatile',
+        messages: messages,
+        max_tokens: 1000,
+        temperature: 0.7,
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.choices[0].message.content;
+
+    console.log('Groq API success, response length:', text.length);
+
+    return NextResponse.json({
+      content: text,
+      model: 'grok',
+      timestamp: new Date().toISOString()
+    });
 
   } catch (error) {
-    console.error('Grok API Error:', error);
+    console.error('Grok API Error:', error.message);
     return getDummyResponse('grok', message);
   }
 }
