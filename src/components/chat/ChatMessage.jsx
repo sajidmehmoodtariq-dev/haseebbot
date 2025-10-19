@@ -2,7 +2,7 @@
 
 import { Card } from '@/components/ui/card';
 import { cn, formatTimestamp } from '@/lib/utils';
-import { Bot, User, Sparkles, Zap, Brain } from 'lucide-react';
+import { Bot, User, Sparkles, Zap, Brain, Volume2 } from 'lucide-react';
 
 const MODEL_ICONS = {
   gemini: Sparkles,
@@ -16,7 +16,7 @@ const MODEL_COLORS = {
   custom: 'from-amber-500 to-orange-500'
 };
 
-export default function ChatMessage({ message, isLast, compareMode }) {
+export default function ChatMessage({ message, isLast, compareMode, isSpeaking }) {
   const isUser = message.role === 'user';
   const ModelIcon = MODEL_ICONS[message.model] || Bot;
 
@@ -44,6 +44,12 @@ export default function ChatMessage({ message, isLast, compareMode }) {
               {message.model === 'gemini' ? 'Gemini Pro' : 
                message.model === 'grok' ? 'Grok' : 'Custom Model'}
             </span>
+            {isSpeaking && (
+              <div className="flex items-center space-x-1">
+                <Volume2 className="w-3 h-3 text-blue-400 animate-pulse" />
+                <span className="text-xs text-blue-400">Speaking...</span>
+              </div>
+            )}
             <span className="text-xs text-white/40">
               {formatTimestamp(message.timestamp)}
             </span>

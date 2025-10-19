@@ -1,7 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@import "tailwindcss/preflight";
+@import "tailwindcss/utilities";
 
 /* Neural Prism Theme - Custom Variables */
 :root {
@@ -288,6 +289,57 @@ body::before {
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+}
+
+/* Voice Recording Animation */
+.voice-recording {
+  position: relative;
+  overflow: hidden;
+}
+
+.voice-recording::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.3), transparent);
+  animation: voiceWave 2s infinite;
+}
+
+@keyframes voiceWave {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* Speaking Animation */
+.speaking-pulse {
+  animation: speakingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes speakingPulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+/* Voice Activity Indicator */
+.voice-activity {
+  width: 4px;
+  height: 20px;
+  background: var(--neural-cyan);
+  border-radius: 2px;
+  animation: voiceActivity 0.8s ease-in-out infinite alternate;
+}
+
+.voice-activity:nth-child(2) { animation-delay: 0.1s; }
+.voice-activity:nth-child(3) { animation-delay: 0.2s; }
+.voice-activity:nth-child(4) { animation-delay: 0.3s; }
+.voice-activity:nth-child(5) { animation-delay: 0.4s; }
+
+@keyframes voiceActivity {
+  0% { height: 4px; opacity: 0.5; }
+  100% { height: 20px; opacity: 1; }
 }
 
 /* Mobile Responsive */
