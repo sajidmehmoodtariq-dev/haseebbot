@@ -11,6 +11,7 @@ export function useTextToSpeech() {
   const [rate, setRate] = useState(1);
   const [pitch, setPitch] = useState(1);
   const [volume, setVolume] = useState(1);
+  const [availableVoices, setAvailableVoices] = useState([]);
 
   const utteranceRef = useRef(null);
 
@@ -19,17 +20,22 @@ export function useTextToSpeech() {
       setIsSupported(true);
       
       const loadVoices = () => {
-        const availableVoices = window.speechSynthesis.getVoices();
-        setVoices(availableVoices);
+        const voiceList = window.speechSynthesis.getVoices();
+        console.log('Loading voices:', voiceList.length);
+        setVoices(voiceList);
+        setAvailableVoices(voiceList);
         
-        // Set default voice (prefer English voices)
-        const englishVoice = availableVoices.find(voice => 
-          voice.lang.startsWith('en-') && voice.name.includes('Google')
-        ) || availableVoices.find(voice => 
-          voice.lang.startsWith('en-')
-        ) || availableVoices[0];
-        
-        setSelectedVoice(englishVoice);
+        if (voiceList.length > 0) {
+          // Set default voice (prefer English voices)
+          const englishVoice = voiceList.find(voice => 
+            voice.lang.startsWith('en-') && voice.name.includes('Google')
+          ) || voiceList.find(voice => 
+            voice.lang.startsWith('en-')
+          ) || voiceList[0];
+          
+          console.log('Selected default voice:', englishVoice?.name);
+          setSelectedVoice(englishVoice);
+        }
       };
 
       loadVoices();
@@ -42,61 +48,141 @@ export function useTextToSpeech() {
   }, []);
 
   const speak = useCallback((text) => {
-    if (!isSupported || !text.trim()) return;
+    if (!isSupported || !text.trim()) {
+      console.log('Speech synthesis not supported or empty text');
+      return;
+    }
 
-    // Stop any ongoing speech
-    window.speechSynthesis.cancel();
+    // Check if speech synthesis is currently speaking
+    if (window.speechSynthesis.speaking) {
+      console.log('Speech synthesis is already speaking, canceling...');
+      window.speechSynthesis.cancel();
+    }
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = selectedVoice;
-    utterance.rate = rate;
-    utterance.pitch = pitch;
-    utterance.volume = volume;
+    // Wait a moment for the cancel to complete
+    setTimeout(() => {
+      try {
+        // Validate speech synthesis state
+        if (!window.speechSynthesis) {
+          console.error('Speech synthesis not available in this browser');
+          return;
+        }
 
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      setIsPaused(false);
-    };
+        console.log('Creating speech utterance for text:', text.substring(0, 50) + '...');
+        console.log('Available voices:', availableVoices.length);
+        console.log('Selected voice:', selectedVoice?.name || 'None');
 
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      setIsPaused(false);
-    };
+        const utterance = new SpeechSynthesisUtterance(text);
+        
+        // Validate and set voice
+        if (selectedVoice && availableVoices.includes(selectedVoice)) {
+          utterance.voice = selectedVoice;
+          console.log('Voice set to:', selectedVoice.name);
+        } else if (availableVoices.length > 0) {
+          utterance.voice = availableVoices[0];
+          console.log('Using fallback voice:', availableVoices[0].name);
+        }
+        
+        // Set speech parameters with validation
+        utterance.rate = Math.max(0.1, Math.min(2, rate));
+        utterance.pitch = Math.max(0, Math.min(2, pitch));
+        utterance.volume = Math.max(0, Math.min(1, volume));
 
-    utterance.onerror = (event) => {
-      console.error('Speech synthesis error:', event);
-      setIsSpeaking(false);
-      setIsPaused(false);
-    };
+        utterance.onstart = () => {
+          console.log('Speech started');
+          setIsSpeaking(true);
+          setIsPaused(false);
+        };
 
-    utterance.onpause = () => {
-      setIsPaused(true);
-    };
+        utterance.onend = () => {
+          console.log('Speech ended');
+          setIsSpeaking(false);
+          setIsPaused(false);
+        };
 
-    utterance.onresume = () => {
-      setIsPaused(false);
-    };
+        utterance.onerror = (event) => {
+          console.error('Speech synthesis error details:', {
+            error: event.error,
+            type: event.type,
+            message: event.error || 'Unknown error',
+            utteranceText: event.utterance?.text?.substring(0, 50) || 'No text',
+            voiceName: event.utterance?.voice?.name || 'No voice'
+          });
+          
+          // Try to recover by clearing state
+          setIsSpeaking(false);
+          setIsPaused(false);
+          
+          // Cancel any remaining speech
+          try {
+            window.speechSynthesis.cancel();
+          } catch (cancelError) {
+            console.error('Error canceling speech after error:', cancelError);
+          }
+        };
 
-    utteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
-  }, [isSupported, selectedVoice, rate, pitch, volume]);
+        utterance.onpause = () => {
+          console.log('Speech paused');
+          setIsPaused(true);
+        };
+
+        utterance.onresume = () => {
+          console.log('Speech resumed');
+          setIsPaused(false);
+        };
+
+        utteranceRef.current = utterance;
+        
+        // Speak with additional error checking
+        try {
+          console.log('Attempting to speak...');
+          window.speechSynthesis.speak(utterance);
+          console.log('Speech request sent');
+        } catch (speakError) {
+          console.error('Error calling speak():', speakError);
+          setIsSpeaking(false);
+          setIsPaused(false);
+        }
+        
+      } catch (error) {
+        console.error('Error in speak function:', error);
+        setIsSpeaking(false);
+        setIsPaused(false);
+      }
+    }, 200); // Increased timeout to ensure cancel completes
+  }, [isSupported, selectedVoice, rate, pitch, volume, availableVoices]);
 
   const pause = useCallback(() => {
     if (isSpeaking && !isPaused) {
-      window.speechSynthesis.pause();
+      try {
+        window.speechSynthesis.pause();
+      } catch (error) {
+        console.error('Error pausing speech synthesis:', error);
+      }
     }
   }, [isSpeaking, isPaused]);
 
   const resume = useCallback(() => {
     if (isSpeaking && isPaused) {
-      window.speechSynthesis.resume();
+      try {
+        window.speechSynthesis.resume();
+      } catch (error) {
+        console.error('Error resuming speech synthesis:', error);
+      }
     }
   }, [isSpeaking, isPaused]);
 
   const stop = useCallback(() => {
-    window.speechSynthesis.cancel();
-    setIsSpeaking(false);
-    setIsPaused(false);
+    try {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    } catch (error) {
+      console.error('Error stopping speech synthesis:', error);
+    } finally {
+      setIsSpeaking(false);
+      setIsPaused(false);
+    }
   }, []);
 
   const setVoice = useCallback((voice) => {
