@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export async function POST(request) {
   try {
@@ -11,6 +15,8 @@ export async function POST(request) {
     switch (model) {
       case 'gemini':
         return await handleGeminiRequest(message, history);
+      case 'gpt':
+        return await handleOpenAIRequest(message, history);
       case 'grok':
         return await handleGrokRequest(message, history);
       case 'claude':
@@ -31,22 +37,20 @@ export async function POST(request) {
 async function handleGeminiRequest(message, history) {
   try {
     if (!process.env.GOOGLE_AI_API_KEY) {
+      console.log('No Google AI API key found');
       return getDummyResponse('gemini', message);
     }
 
+    console.log('Attempting to use Gemini API with key:', process.env.GOOGLE_AI_API_KEY.substring(0, 10) + '...');
+    
+    // Try the most basic model name first
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
     
-    // Convert history to Gemini format
-    const chat = model.startChat({
-      history: history?.map(msg => ({
-        role: msg.role === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.content }]
-      })) || []
-    });
-
-    const result = await chat.sendMessage(message);
+    const result = await model.generateContent([message]);
     const response = await result.response;
     const text = response.text();
+
+    console.log('Gemini API success, response length:', text.length);
 
     return NextResponse.json({
       content: text,
@@ -55,8 +59,49 @@ async function handleGeminiRequest(message, history) {
     });
 
   } catch (error) {
-    console.error('Gemini API Error:', error);
+    console.error('Gemini API Error details:', {
+      message: error.message,
+      status: error.status,
+      cause: error.cause
+    });
+    
     return getDummyResponse('gemini', message);
+  }
+}
+
+async function handleOpenAIRequest(message, history) {
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      return getDummyResponse('gpt', message);
+    }
+
+    // Convert history to OpenAI format
+    const messages = [
+      ...(history?.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      })) || []),
+      { role: 'user', content: message }
+    ];
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: messages,
+      max_tokens: 1000,
+      temperature: 0.7,
+    });
+
+    const text = completion.choices[0].message.content;
+
+    return NextResponse.json({
+      content: text,
+      model: 'gpt',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('OpenAI API Error:', error);
+    return getDummyResponse('gpt', message);
   }
 }
 
@@ -107,6 +152,20 @@ This is a demo response. In a real implementation, I would:
 - Offer helpful, accurate information
 
 🌟 *Ready to help with coding, analysis, creative tasks, and more!*`,
+
+    gpt: `**GPT-4o Mini Response:**
+
+Hello! I'm GPT-4o Mini from OpenAI. You asked: "${message}"
+
+*Note: To get real responses, add your OPENAI_API_KEY to .env.local*
+
+This is a demo response. In a real implementation, I would:
+- Process your query using OpenAI's GPT API
+- Provide comprehensive, well-structured responses
+- Excel at creative writing and problem-solving
+- Offer accurate and helpful information
+
+⚡ *OpenAI's efficient model at your service!*`,
 
     grok: `**Grok Response:**
 

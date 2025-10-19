@@ -18,10 +18,17 @@ import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 const AI_MODELS = [
   { 
     id: 'gemini', 
-    name: 'Gemini Pro', 
+    name: 'Gemini Flash', 
     icon: Sparkles, 
     color: 'emerald',
-    description: 'Google\'s most capable AI'
+    description: 'Google\'s fast & capable AI'
+  },
+  { 
+    id: 'gpt', 
+    name: 'GPT-4o Mini', 
+    icon: Brain, 
+    color: 'blue',
+    description: 'OpenAI\'s efficient model'
   },
   { 
     id: 'grok', 
@@ -29,13 +36,6 @@ const AI_MODELS = [
     icon: Zap, 
     color: 'purple',
     description: 'X\'s witty AI assistant'
-  },
-  { 
-    id: 'claude', 
-    name: 'Claude', 
-    icon: Brain, 
-    color: 'blue',
-    description: 'Anthropic\'s thoughtful AI'
   }
 ];
 
