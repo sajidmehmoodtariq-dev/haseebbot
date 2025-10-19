@@ -10,6 +10,12 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Groq client using OpenAI SDK with custom base URL
+const groq = new OpenAI({
+  apiKey: process.env.GROK_API_KEY,
+  baseURL: "https://api.groq.com/openai/v1",
+});
+
 export async function POST(request) {
   try {
     const { message, model, history } = await request.json();
@@ -114,9 +120,9 @@ async function handleGrokRequest(message, history) {
       return getDummyResponse('grok', message);
     }
 
-    console.log('Attempting Groq API call...');
+    console.log('Attempting Groq API call with OpenAI client...');
     
-    // Convert history to Groq format
+    // Convert history to OpenAI chat format
     const messages = [
       ...(history?.map(msg => ({
         role: msg.role,
@@ -125,27 +131,14 @@ async function handleGrokRequest(message, history) {
       { role: 'user', content: message }
     ];
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.GROK_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.1-70b-versatile',
-        messages: messages,
-        max_tokens: 1000,
-        temperature: 0.7,
-      })
+    const completion = await groq.chat.completions.create({
+      model: "openai/gpt-oss-20b",
+      messages: messages,
+      max_tokens: 1000,
+      temperature: 0.7,
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const text = data.choices[0].message.content;
-
+    const text = completion.choices[0].message.content;
     console.log('Groq API success, response length:', text.length);
 
     return NextResponse.json({
@@ -155,7 +148,7 @@ async function handleGrokRequest(message, history) {
     });
 
   } catch (error) {
-    console.error('Grok API Error:', error.message);
+    console.error('Groq API Error:', error.message);
     return getDummyResponse('grok', message);
   }
 }
